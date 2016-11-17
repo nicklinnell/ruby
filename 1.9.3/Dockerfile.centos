@@ -1,0 +1,63 @@
+FROM centos:6.8
+MAINTAINER Nick Linnell <nicklinnell@gmail.com>
+
+RUN yum install -y \
+      bzip2 \
+      ca-certificates \
+      libffi-devel \
+      gdbm \
+      openssl-devel \
+      libyaml-devel \
+      procps \
+      zlib-devel \
+      git \
+      && yum clean all
+
+ENV RUBY_MAJOR 1.9
+ENV RUBY_VERSION 1.9.3-p551
+ENV RUBYGEMS_VERSION 2.6.8
+
+RUN set -ex \
+      \
+      && buildDeps=' \
+      autoconf \
+      bison \
+      gcc \
+      libxml2-devel \
+      libxslt-devel \
+      make \
+      ruby \
+      wget \
+      ' \
+      && yum update -y \
+      && yum install -y $buildDeps \
+      && wget -O ruby.tar.gz "https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz" \
+      && mkdir -p /usr/src/ruby \
+      && tar -xzf ruby.tar.gz -C /usr/src/ruby --strip-components=1 \
+      && rm ruby.tar.gz \
+      && cd /usr/src/ruby \
+      && autoconf \
+      && ./configure --disable-install-doc \
+      && make -j"$(nproc)" \
+      && make install \
+      && rpm -e --nodeps $buildDeps \
+      && yum clean all \
+      && cd / \
+      && rm -r /usr/src/ruby \
+      && gem update --system "$RUBYGEMS_VERSION"
+
+ENV BUNDLER_VERSION 1.13.6
+
+RUN gem install bundler --version "$BUNDLER_VERSION"
+
+ENV GEM_HOME /bundle
+ENV BUNDLE_PATH="$GEM_HOME" \
+  BUNDLE_BIN="$GEM_HOME/bin" \
+  BUNDLE_SILENCE_ROOT_WARNING=1 \
+  BUNDLE_JOBS=2 \
+  BUNDLE_APP_CONFIG="$GEM_HOME"
+ENV PATH $BUNDLE_BIN:$PATH
+RUN mkdir -p "$GEM_HOME" "$BUNDLE_BIN" \
+      && chmod 777 "$GEM_HOME" "$BUNDLE_BIN"
+
+CMD [ "irb" ]
